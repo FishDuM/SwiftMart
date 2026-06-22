@@ -37,3 +37,5 @@ build/
 ### Mac OS ###
 .DS_Store
 /.idea/
+/swift-mart-app/src/main/resources/application-dev.yml
+/swift-mart-app/src/main/resources/application-local.yml
