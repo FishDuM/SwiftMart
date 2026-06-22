@@ -5,6 +5,8 @@ import hk.ljx.swiftmart.common.enums.ResponseCodeEnum;
 import hk.ljx.swiftmart.common.exception.BizException;
 import hk.ljx.swiftmart.common.utils.Response;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LoggerContext;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -44,5 +46,15 @@ public class TestController {
         // 模拟抛出系统异常
         int i = 1 / 0;
         return Response.success("不会走到这里");
+    }
+
+    /**
+     * 验证 Log4j2 是否使用了 Disruptor 异步日志
+     */
+    @GetMapping("/test/checkLogger")
+    public Response<String> checkLogger() {
+        LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
+        String loggerClass = ctx.getRootLogger().getClass().getName();
+        return Response.success("Root Logger 实现类: " + loggerClass);
     }
 }

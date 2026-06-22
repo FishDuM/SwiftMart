@@ -33,6 +33,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <mybatis-spring-boot.version>3.0.5</mybatis-spring-boot.version>
     <mybatis-generator-maven-plugin.version>1.3.5</mybatis-generator-maven-plugin.version>
+    <disruptor.version>3.4.4</disruptor.version>
   </properties>
 
   <!-- 统一依赖管理 -->
@@ -79,6 +80,14 @@
         <artifactId>mybatis-spring-boot-starter</artifactId>
         <version>${mybatis-spring-boot.version}</version>
       </dependency>
+
+      <!-- Disruptor 高性能队列（Log4j2 异步日志需要） -->
+      <dependency>
+        <groupId>com.lmax</groupId>
+        <artifactId>disruptor</artifactId>
+        <version>${disruptor.version}</version>
+      </dependency>
+
     </dependencies>
   </dependencyManagement>
 
