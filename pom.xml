@@ -59,6 +59,20 @@
         <version>${revision}</version>
       </dependency>
 
+      <!-- 用户模块 -->
+      <dependency>
+        <groupId>hk.ljx.swiftmart.user</groupId>
+        <artifactId>swift-mart-user</artifactId>
+        <version>${revision}</version>
+      </dependency>
+
+      <!-- app模块 -->
+      <dependency>
+        <groupId>hk.ljx.swiftmart.app</groupId>
+        <artifactId>swift-mart-app</artifactId>
+        <version>${revision}</version>
+      </dependency>
+
       <!-- MyBatis Spring Boot Starter -->
       <dependency>
         <groupId>org.mybatis.spring.boot</groupId>

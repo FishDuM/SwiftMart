@@ -18,12 +18,6 @@
     </properties>
 
     <dependencies>
-        <!-- 公共模块 -->
-        <dependency>
-            <groupId>hk.ljx.swiftmart.common</groupId>
-            <artifactId>swift-mart-common</artifactId>
-        </dependency>
-
         <!-- 商品模块 -->
         <dependency>
             <groupId>hk.ljx.swiftmart.goods</groupId>
@@ -34,6 +28,12 @@
         <dependency>
             <groupId>hk.ljx.swiftmart.order</groupId>
             <artifactId>swift-mart-order</artifactId>
+        </dependency>
+
+        <!-- 用户模块 -->
+        <dependency>
+            <groupId>hk.ljx.swiftmart.user</groupId>
+            <artifactId>swift-mart-user</artifactId>
         </dependency>
 
         <!-- Spring Boot Web -->
