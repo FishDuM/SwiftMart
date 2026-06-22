@@ -1,0 +1,52 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>hk.ljx</groupId>
+        <artifactId>swift-mart</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <groupId>hk.ljx.swiftmart.user</groupId>
+    <artifactId>swift-mart-user</artifactId>
+    <packaging>jar</packaging>
+
+    <name>${artifactId}</name>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <!-- 公共模块 -->
+        <dependency>
+            <groupId>hk.ljx.swiftmart.common</groupId>
+            <artifactId>swift-mart-common</artifactId>
+        </dependency>
+
+        <!-- 商品模块 -->
+        <dependency>
+            <groupId>hk.ljx.swiftmart.goods</groupId>
+            <artifactId>swift-mart-goods</artifactId>
+        </dependency>
+
+        <!-- 订单模块 -->
+        <dependency>
+            <groupId>hk.ljx.swiftmart.order</groupId>
+            <artifactId>swift-mart-order</artifactId>
+        </dependency>
+
+        <!-- Spring Boot Web -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Spring Boot Test 单元测试 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>
