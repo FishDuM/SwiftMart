@@ -131,4 +131,10 @@
     from t_user
     where mobile = #{mobile,jdbcType=VARCHAR}
   </select>
+
+  <select id="selectByMobile" resultType="hk.ljx.swiftmart.common.domain.dataobject.UserDO">
+    select
+        <include refid="Base_Column_List" />
+    from t_user where mobile = #{mobile,jdbcType=VARCHAR}
+  </select>
 </mapper>

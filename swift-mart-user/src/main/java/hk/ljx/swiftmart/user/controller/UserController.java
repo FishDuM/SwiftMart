@@ -2,7 +2,9 @@ package hk.ljx.swiftmart.user.controller;
 
 import hk.ljx.swiftmart.common.aspect.ApiOperationLog;
 import hk.ljx.swiftmart.common.utils.Response;
+import hk.ljx.swiftmart.user.modal.vo.LoginUserRspVO;
 import hk.ljx.swiftmart.user.modal.vo.RegisterUserReqVO;
+import hk.ljx.swiftmart.user.modal.vo.UserLoginReqVO;
 import hk.ljx.swiftmart.user.service.UserService;
 import jakarta.annotation.Resource;
 import org.springframework.validation.annotation.Validated;
@@ -22,6 +24,12 @@ public class UserController {
     @PostMapping("/register")
     public Response<?> register (@Validated @RequestBody RegisterUserReqVO registerUserReqVO) {
         return userService.register(registerUserReqVO);
+    }
+
+    @ApiOperationLog(description = "用户登录")
+    @PostMapping("/login")
+    public Response<LoginUserRspVO> login (@Validated @RequestBody UserLoginReqVO userLoginReqVO) {
+        return userService.login(userLoginReqVO);
     }
 }
 
