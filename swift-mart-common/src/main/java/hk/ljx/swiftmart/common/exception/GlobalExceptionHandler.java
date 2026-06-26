@@ -1,5 +1,6 @@
 package hk.ljx.swiftmart.common.exception;
 
+import cn.dev33.satoken.exception.NotLoginException;
 import hk.ljx.swiftmart.common.enums.ResponseCodeEnum;
 import hk.ljx.swiftmart.common.utils.Response;
 import jakarta.servlet.http.HttpServletRequest;
@@ -64,6 +65,13 @@ public class GlobalExceptionHandler {
         log.warn("{} request error, errorCode: {}, errorMessage: {}", request.getRequestURI(), errorCode, errorMessage);
 
         return Response.fail(errorCode, errorMessage);
+    }
+
+    @ExceptionHandler({ NotLoginException.class })
+    @ResponseBody
+    public Response<Object> handleNotLoginException(HttpServletRequest request, NotLoginException e) {
+        log.error("{}请求失败, 未登录异常: {}", request.getRequestURI(), e.getMessage());
+        return Response.fail(ResponseCodeEnum.UNAUTHORIZED);
     }
 
     /**

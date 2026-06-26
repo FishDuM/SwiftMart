@@ -133,6 +133,9 @@ public class UserServiceImpl implements UserService {
         // 校验当前手机号登录失败次数
         UserDO userDO = userDOMapper.selectByMobile(mobile);
         if (Objects.isNull(userDO)) {
+            if (Objects.equals(type, LoginTypeEnum.PASSWORD.getCode())) {
+                throw new BizException(ResponseCodeEnum.USER_LOGIN_CREDENTIAL_ERROR);
+            }
             throw new BizException(ResponseCodeEnum.USER_MOBILE_NOT_REGISTERED);
         }
 
@@ -210,6 +213,15 @@ public class UserServiceImpl implements UserService {
         return Response.success();
     }
 
+    @Override
+    public Response<?> logout() {
+        String token = StpUtil.getTokenValue();
+        Object loginId = StpUtil.getLoginId();
+        StpUtil.logout();
+        log.info("用户{}退出登录，token为{}", loginId, token);
+        return Response.success();
+    }
+
     /**
      * 发送验证码
      * @param mobile 手机号
@@ -276,12 +288,12 @@ public class UserServiceImpl implements UserService {
     private void checkPassword(String truePassword, String password, String mobile) {
         if (StringUtils.isBlank(password)) {
             addLoginFailCount(mobile);
-            throw new BizException(ResponseCodeEnum.USER_PASSWORD_ERROR);
+            throw new BizException(ResponseCodeEnum.USER_LOGIN_CREDENTIAL_ERROR);
         }
         boolean matches = PASSWORD_ENCODER.matches(password, truePassword);
         if (!matches) {
             addLoginFailCount(mobile);
-            throw new BizException(ResponseCodeEnum.USER_PASSWORD_ERROR);
+            throw new BizException(ResponseCodeEnum.USER_LOGIN_CREDENTIAL_ERROR);
         }
         redisTemplate.delete(LOGIN_FAIL_COUNT_KEY_PREFIX + ":" + mobile);
     }
