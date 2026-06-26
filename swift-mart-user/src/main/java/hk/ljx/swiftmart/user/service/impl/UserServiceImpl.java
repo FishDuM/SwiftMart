@@ -44,8 +44,8 @@ public class UserServiceImpl implements UserService {
     @Resource
     private UserDOMapper userDOMapper;
 
-    @Resource
-    private RedisTemplate<String, Object> redisTemplate;
+//    @Resource
+//    private RedisTemplate<String, Object> redisTemplate;
 
     @Qualifier("bizExecutor")
     @Resource
@@ -58,6 +58,8 @@ public class UserServiceImpl implements UserService {
     private final DefaultRedisScript<Long> checkAndDeleteVerifyCodeScript;
     // 登录录失败计数 Lua 脚本
     private final DefaultRedisScript<Long> checkAndIncrementLoginFailScript;
+    // 发送验证码原子 Lua 脚本
+    private final DefaultRedisScript<Long> checkAndIncrementDailyLimitScript;
 
     public UserServiceImpl() {
         checkAndDeleteVerifyCodeScript = new DefaultRedisScript<>();
@@ -67,6 +69,10 @@ public class UserServiceImpl implements UserService {
         checkAndIncrementLoginFailScript = new DefaultRedisScript<>();
         checkAndIncrementLoginFailScript.setLocation(new ClassPathResource("lua/check_and_increment_login_fail_count.lua"));
         checkAndIncrementLoginFailScript.setResultType(Long.class);
+
+        checkAndIncrementDailyLimitScript = new DefaultRedisScript<>();
+        checkAndIncrementDailyLimitScript.setLocation(new ClassPathResource("lua/check_and_increment_verify_code_daily_limit.lua"));
+        checkAndIncrementDailyLimitScript.setResultType(Long.class);
     }
 
     // BCrypt 密码编码器
@@ -119,7 +125,7 @@ public class UserServiceImpl implements UserService {
                 .status(UserStatusEnum.ENABLE.getCode())
                 .build();
         userDOMapper.insertSelective(userDO);
-        redisTemplate.delete(VERIFY_CODE_KEY_PREFIX + VerifyCodeTypeEnum.REGISTER.getPurpose() + ":" + mobile);
+        stringRedisTemplate.delete(VERIFY_CODE_KEY_PREFIX + VerifyCodeTypeEnum.REGISTER.getPurpose() + ":" + mobile);
         log.info("用户注册成功，用户ID：{}，用户手机号：{}", userDO.getId(), mobile);
         return Response.success();
     }
@@ -179,32 +185,34 @@ public class UserServiceImpl implements UserService {
         }
 
         String limitKey = VERIFY_CODE_LIMIT_KEY_PREFIX + verifyCodeType.getPurpose() + ":" + mobile;
-        if (redisTemplate.hasKey(limitKey)) {
+        Boolean absent = stringRedisTemplate.opsForValue().setIfAbsent(limitKey, "1", VERIFY_CODE_LIMIT_SECONDS, TimeUnit.SECONDS);
+        if (Boolean.FALSE.equals(absent)) {
             throw new BizException(ResponseCodeEnum.VERIFY_CODE_SEND_TOO_FREQUENT);
         }
 
-        String maxLimitKey = VERIFY_CODE_DAILY_LIMIT_KEY_PREFIX + verifyCodeType.getPurpose() + ":" + mobile;
+        String maxLimitKey = VERIFY_CODE_DAILY_LIMIT_KEY_PREFIX + verifyCodeType.getPurpose() + ":" + mobile + ":" + LocalDate.now();
+
+        long secondsUntilMidnight = Duration.between(
+                LocalDateTime.now(),
+                LocalDateTime.of(LocalDate.now().plusDays(1), LocalTime.MIDNIGHT)
+        ).getSeconds();
         // 设置同一号码同一业务类型一天验证码限制
-        Long count = redisTemplate.opsForValue().increment(maxLimitKey);
-        if (Objects.nonNull(count) &&  count == 1) {
-            long secondsUntilMidnight = Duration.between(
-                    LocalDateTime.now(),
-                    LocalDateTime.of(LocalDate.now().plusDays(1), LocalTime.MIDNIGHT)
-            ).getSeconds();
-            redisTemplate.expire(maxLimitKey, secondsUntilMidnight, TimeUnit.SECONDS);
-        }
-        // 超过 10 条抛异常
-        if (Objects.nonNull(count) && count > VERIFY_CODE_DAILY_LIMIT) {
+        Long count = stringRedisTemplate.execute(checkAndIncrementDailyLimitScript,
+                Collections.singletonList(maxLimitKey),
+                String.valueOf(VERIFY_CODE_DAILY_LIMIT),
+                String.valueOf(secondsUntilMidnight)
+        );
+        if (Objects.nonNull(count) && count == -1) {
             throw new BizException(ResponseCodeEnum.VERIFY_CODE_DAILY_LIMIT_EXCEEDED);
         }
 
         String key = VERIFY_CODE_KEY_PREFIX + verifyCodeType.getPurpose() + ":" + mobile;
         String verifyCode = RandomUtil.randomNumbers(6);
-        redisTemplate.executePipelined(new SessionCallback<Void>() {
+        stringRedisTemplate.executePipelined(new SessionCallback<Void>() {
             @Override
             public Void execute(RedisOperations redisOperations) {
-                redisOperations.opsForValue().set(limitKey, "1", VERIFY_CODE_LIMIT_SECONDS, TimeUnit.SECONDS);
-                redisOperations.opsForValue().set(key, verifyCode, VERIFY_CODE_EXPIRE_MINUTES, TimeUnit.MINUTES);
+                redisOperations.opsForValue().setIfAbsent(limitKey, "1", VERIFY_CODE_LIMIT_SECONDS, TimeUnit.SECONDS);
+                redisOperations.opsForValue().setIfAbsent(key, verifyCode, VERIFY_CODE_EXPIRE_MINUTES, TimeUnit.MINUTES);
                 return null;
             }
         });
@@ -245,7 +253,7 @@ public class UserServiceImpl implements UserService {
             throw new BizException(ResponseCodeEnum.USER_VERIFY_CODE_ERROR);
         }
         String key = VERIFY_CODE_KEY_PREFIX + purpose + ":" + mobile;
-        Long result = redisTemplate.execute(checkAndDeleteVerifyCodeScript,
+        Long result = stringRedisTemplate.execute(checkAndDeleteVerifyCodeScript,
                 Collections.singletonList(key),
                 verifyCode);
         if (result == null || result == 0) {
@@ -259,9 +267,12 @@ public class UserServiceImpl implements UserService {
      */
     private void checkLoginFailLimit(String mobile) {
         // 判断当前号码输入错误次数是否大于 5
-        Integer errorCount = (Integer) redisTemplate.opsForValue().get(LOGIN_FAIL_COUNT_KEY_PREFIX + ":" + mobile);
-        if (Objects.nonNull(errorCount) && errorCount >= LOGIN_FAIL_MAX_COUNT){
-            throw new BizException(ResponseCodeEnum.LOGIN_FAIL_TOO_MANY);
+        String errorCount =  stringRedisTemplate.opsForValue().get(LOGIN_FAIL_COUNT_KEY_PREFIX + ":" + mobile);
+        if (Objects.nonNull(errorCount)){
+            int count = Integer.parseInt(errorCount);
+            if (count >= LOGIN_FAIL_MAX_COUNT){
+                throw new BizException(ResponseCodeEnum.LOGIN_FAIL_TOO_MANY);
+            }
         }
     }
 
@@ -295,7 +306,7 @@ public class UserServiceImpl implements UserService {
             addLoginFailCount(mobile);
             throw new BizException(ResponseCodeEnum.USER_LOGIN_CREDENTIAL_ERROR);
         }
-        redisTemplate.delete(LOGIN_FAIL_COUNT_KEY_PREFIX + ":" + mobile);
+        stringRedisTemplate.delete(LOGIN_FAIL_COUNT_KEY_PREFIX + ":" + mobile);
     }
 
     /**
