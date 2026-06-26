@@ -27,6 +27,10 @@ import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Collections;
 import java.util.Objects;
 import java.util.concurrent.Executor;
@@ -62,6 +66,11 @@ public class UserServiceImpl implements UserService {
     private static final Long VERIFY_CODE_EXPIRE_MINUTES = 5L;
     // 发送频率限制时间（秒）
     private static final Long VERIFY_CODE_LIMIT_SECONDS = 60L;
+    // Redis 中每日发送次数限制的 Key 前缀
+    private static final String VERIFY_CODE_DAILY_LIMIT_KEY_PREFIX = "verify_code_daily:";
+    // 每日发送次数上限
+    private static final Integer VERIFY_CODE_DAILY_LIMIT = 10;
+
 
     /**
      * 用户注册
@@ -147,6 +156,21 @@ public class UserServiceImpl implements UserService {
         String limitKey = VERIFY_CODE_LIMIT_KEY_PREFIX + verifyCodeType.getPurpose() + ":" + mobile;
         if (redisTemplate.hasKey(limitKey)) {
             throw new BizException(ResponseCodeEnum.VERIFY_CODE_SEND_TOO_FREQUENT);
+        }
+
+        String maxLimitKey = VERIFY_CODE_DAILY_LIMIT_KEY_PREFIX + verifyCodeType.getPurpose() + ":" + mobile;
+        // 设置同一号码同一业务类型一天验证码限制
+        Long count = redisTemplate.opsForValue().increment(maxLimitKey);
+        if (Objects.nonNull(count) &&  count == 1) {
+            long secondsUntilMidnight = Duration.between(
+                    LocalDateTime.now(),
+                    LocalDateTime.of(LocalDate.now().plusDays(1), LocalTime.MIDNIGHT)
+            ).getSeconds();
+            redisTemplate.expire(maxLimitKey, secondsUntilMidnight, TimeUnit.SECONDS);
+        }
+        // 超过 10 条抛异常
+        if (Objects.nonNull(count) && count > VERIFY_CODE_DAILY_LIMIT) {
+            throw new BizException(ResponseCodeEnum.VERIFY_CODE_DAILY_LIMIT_EXCEEDED);
         }
 
         String key = VERIFY_CODE_KEY_PREFIX + verifyCodeType.getPurpose() + ":" + mobile;
