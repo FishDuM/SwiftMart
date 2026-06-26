@@ -16,6 +16,9 @@ public enum ResponseCodeEnum implements BaseExceptionInterface {
     PARAM_NOT_VALID("10001", "参数错误"),
 
     // ----------- 业务异常状态码 -----------
+
+    VERIFY_CODE_TYPE_ERROR("20006", "验证码类型错误"),
+    VERIFY_CODE_SEND_TOO_FREQUENT("20007", "验证码发送过于频繁，请稍后再试"),
     ;
 
     // 异常码
