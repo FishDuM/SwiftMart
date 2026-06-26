@@ -18,7 +18,6 @@ import hk.ljx.swiftmart.user.service.UserService;
 import io.micrometer.common.util.StringUtils;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.RedisOperations;
@@ -70,6 +69,9 @@ public class UserServiceImpl implements UserService {
         checkAndIncrementLoginFailScript.setResultType(Long.class);
     }
 
+    // BCrypt 密码编码器
+    private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
+
     // Redis 中验证码的 Key 前缀
     private static final String VERIFY_CODE_KEY_PREFIX = "verify_code:";
     // Redis 中发送频率限制的 Key 前缀
@@ -108,7 +110,7 @@ public class UserServiceImpl implements UserService {
             throw new BizException(ResponseCodeEnum.USER_MOBILE_EXISTS);
         }
         // 3、密码加密
-        String encodedPassword = new BCryptPasswordEncoder().encode(password);
+        String encodedPassword = PASSWORD_ENCODER.encode(password);
         // 4、注册用户
         UserDO userDO = UserDO.builder()
                 .mobile(mobile)
@@ -276,7 +278,7 @@ public class UserServiceImpl implements UserService {
             addLoginFailCount(mobile);
             throw new BizException(ResponseCodeEnum.USER_PASSWORD_ERROR);
         }
-        boolean matches = new BCryptPasswordEncoder().matches(password, truePassword);
+        boolean matches = PASSWORD_ENCODER.matches(password, truePassword);
         if (!matches) {
             addLoginFailCount(mobile);
             throw new BizException(ResponseCodeEnum.USER_PASSWORD_ERROR);
