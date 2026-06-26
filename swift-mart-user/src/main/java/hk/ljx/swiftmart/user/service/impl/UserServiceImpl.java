@@ -66,10 +66,7 @@ public class UserServiceImpl implements UserService {
         String verifyCode = registerUserReqVO.getVerifyCode();
 
         // 1、校验验证码
-        // todo
-        if (!verifyCode.equals("123456")) {
-            throw new BizException(ResponseCodeEnum.USER_VERIFY_CODE_ERROR);
-        }
+        checkVerifyCode(mobile, verifyCode, VerifyCodeTypeEnum.REGISTER.getPurpose());
         // 2、校验手机号是否已经注册
         Long id = userDOMapper.selectIdByMobile(mobile);
         if (Objects.nonNull(id)) {
@@ -85,6 +82,7 @@ public class UserServiceImpl implements UserService {
                 .status(UserStatusEnum.ENABLE.getCode())
                 .build();
         userDOMapper.insertSelective(userDO);
+        redisTemplate.delete(VERIFY_CODE_KEY_PREFIX + ":" + mobile);
         log.info("用户注册成功，用户ID：{}，用户手机号：{}", userDO.getId(), mobile);
         return Response.success();
     }
@@ -106,7 +104,7 @@ public class UserServiceImpl implements UserService {
             checkPassword(userDO.getPassword(), password);
         } else {
             // 验证码登录
-            checkVerifyCode(verifyCode);
+            checkVerifyCode(mobile, verifyCode, VerifyCodeTypeEnum.LOGIN.getPurpose());
         }
         // 判断用户是否被禁用
         if (Objects.equals(userDO.getStatus(), UserStatusEnum.DISABLE.getCode())) {
@@ -142,7 +140,7 @@ public class UserServiceImpl implements UserService {
             throw new BizException(ResponseCodeEnum.VERIFY_CODE_SEND_TOO_FREQUENT);
         }
 
-        String key = VERIFY_CODE_KEY_PREFIX + verifyCodeType.getPurpose() + mobile;
+        String key = VERIFY_CODE_KEY_PREFIX + verifyCodeType.getPurpose() + ":" + mobile;
         String verifyCode = RandomUtil.randomNumbers(6);
         redisTemplate.executePipelined(new SessionCallback<Void>() {
             @Override
@@ -172,17 +170,23 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * 验证码登录
+     * 校验验证码
      * @param verifyCode 验证码
      */
-    private void checkVerifyCode(String verifyCode) {
+    private void checkVerifyCode(String mobile, String verifyCode, String purpose) {
         if (StringUtils.isBlank(verifyCode)) {
             throw new BizException(ResponseCodeEnum.USER_VERIFY_CODE_ERROR);
         }
-        // 调用验证码服务
-        if (!"123456".equals(verifyCode)) {
+        String key = VERIFY_CODE_KEY_PREFIX + purpose + ":" + mobile;
+        Object cacheCode = redisTemplate.opsForValue().get(key);
+        if (cacheCode == null){
             throw new BizException(ResponseCodeEnum.USER_VERIFY_CODE_ERROR);
         }
+        // 调用验证码服务
+        if (!cacheCode.equals(verifyCode)) {
+            throw new BizException(ResponseCodeEnum.USER_VERIFY_CODE_ERROR);
+        }
+        redisTemplate.delete(key);
     }
 
     /**
