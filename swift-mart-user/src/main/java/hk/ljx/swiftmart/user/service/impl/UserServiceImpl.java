@@ -18,11 +18,13 @@ import hk.ljx.swiftmart.user.service.UserService;
 import io.micrometer.common.util.StringUtils;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.SessionCallback;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -50,12 +52,22 @@ public class UserServiceImpl implements UserService {
     @Resource
     private Executor bizExecutor;
 
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
+
+    // 验证码过期时间 Lua 脚本
     private final DefaultRedisScript<Long> checkAndDeleteVerifyCodeScript;
+    // 登录录失败计数 Lua 脚本
+    private final DefaultRedisScript<Long> checkAndIncrementLoginFailScript;
 
     public UserServiceImpl() {
         checkAndDeleteVerifyCodeScript = new DefaultRedisScript<>();
         checkAndDeleteVerifyCodeScript.setLocation(new ClassPathResource("lua/check_and_delete_verify_code.lua"));
         checkAndDeleteVerifyCodeScript.setResultType(Long.class);
+
+        checkAndIncrementLoginFailScript = new DefaultRedisScript<>();
+        checkAndIncrementLoginFailScript.setLocation(new ClassPathResource("lua/check_and_increment_login_fail_count.lua"));
+        checkAndIncrementLoginFailScript.setResultType(Long.class);
     }
 
     // Redis 中验证码的 Key 前缀
@@ -70,7 +82,12 @@ public class UserServiceImpl implements UserService {
     private static final String VERIFY_CODE_DAILY_LIMIT_KEY_PREFIX = "verify_code_daily:";
     // 每日发送次数上限
     private static final Integer VERIFY_CODE_DAILY_LIMIT = 10;
-
+    // Redis 中登录失败次数的 Key 前缀
+    private static final String LOGIN_FAIL_COUNT_KEY_PREFIX = "login_fail_count:";
+    // 登录失败次数上限（超过此值则临时锁定账号）
+    private static final Integer LOGIN_FAIL_MAX_COUNT = 5;
+    // 账号临时锁定时间（分钟）
+    private static final Long LOGIN_LOCK_MINUTES = 30L;
 
     /**
      * 用户注册
@@ -100,7 +117,7 @@ public class UserServiceImpl implements UserService {
                 .status(UserStatusEnum.ENABLE.getCode())
                 .build();
         userDOMapper.insertSelective(userDO);
-        redisTemplate.delete(VERIFY_CODE_KEY_PREFIX + ":" + mobile);
+        redisTemplate.delete(VERIFY_CODE_KEY_PREFIX + VerifyCodeTypeEnum.REGISTER.getPurpose() + ":" + mobile);
         log.info("用户注册成功，用户ID：{}，用户手机号：{}", userDO.getId(), mobile);
         return Response.success();
     }
@@ -111,23 +128,26 @@ public class UserServiceImpl implements UserService {
         Integer type = userLoginReqVO.getType();
         String password = userLoginReqVO.getPassword();
         String verifyCode = userLoginReqVO.getVerifyCode();
-
+        // 校验当前手机号登录失败次数
         UserDO userDO = userDOMapper.selectByMobile(mobile);
         if (Objects.isNull(userDO)) {
             throw new BizException(ResponseCodeEnum.USER_MOBILE_NOT_REGISTERED);
         }
 
-        if (type.equals(LoginTypeEnum.PASSWORD.getCode())) {
-            // 密码登录
-            checkPassword(userDO.getPassword(), password);
-        } else {
-            // 验证码登录
-            checkVerifyCode(mobile, verifyCode, VerifyCodeTypeEnum.LOGIN.getPurpose());
-        }
         // 判断用户是否被禁用
         if (Objects.equals(userDO.getStatus(), UserStatusEnum.DISABLE.getCode())) {
             throw new BizException(ResponseCodeEnum.USER_STATUS_DISABLED);
         }
+
+        if (type.equals(LoginTypeEnum.PASSWORD.getCode())) {
+            // 密码登录
+            checkLoginFailLimit(mobile);
+            checkPassword(userDO.getPassword(), password, mobile);
+        } else {
+            // 验证码登录
+            checkVerifyCode(mobile, verifyCode, VerifyCodeTypeEnum.LOGIN.getPurpose());
+        }
+
         // 调用 sa-token
         StpUtil.login(userDO.getId());
         String token = StpUtil.getTokenValue();
@@ -150,7 +170,7 @@ public class UserServiceImpl implements UserService {
 
         VerifyCodeTypeEnum verifyCodeType = VerifyCodeTypeEnum.valueOf(type);
         if (Objects.isNull(verifyCodeType)) {
-            throw new BizException(ResponseCodeEnum.USER_VERIFY_CODE_ERROR);
+            throw new BizException(ResponseCodeEnum.VERIFY_CODE_TYPE_ERROR);
         }
 
         String limitKey = VERIFY_CODE_LIMIT_KEY_PREFIX + verifyCodeType.getPurpose() + ":" + mobile;
@@ -220,18 +240,48 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
+     * 校验登录失败次数
+     * @param mobile 手机号
+     */
+    private void checkLoginFailLimit(String mobile) {
+        // 判断当前号码输入错误次数是否大于 5
+        Integer errorCount = (Integer) redisTemplate.opsForValue().get(LOGIN_FAIL_COUNT_KEY_PREFIX + ":" + mobile);
+        if (Objects.nonNull(errorCount) && errorCount >= LOGIN_FAIL_MAX_COUNT){
+            throw new BizException(ResponseCodeEnum.LOGIN_FAIL_TOO_MANY);
+        }
+    }
+
+    /**
+     * 增加登录失败次数
+     * @param mobile 手机号
+     */
+    private void addLoginFailCount(String mobile) {
+        String key = LOGIN_FAIL_COUNT_KEY_PREFIX + ":" + mobile;
+        Long count = stringRedisTemplate.execute(checkAndIncrementLoginFailScript,
+                Collections.singletonList(key),
+                String.valueOf(LOGIN_FAIL_MAX_COUNT),
+                String.valueOf(LOGIN_LOCK_MINUTES * 60));
+        if (count == -1) {
+            throw new BizException(ResponseCodeEnum.LOGIN_FAIL_TOO_MANY);
+        }
+    }
+
+    /**
      * 校验原始密码和加密后的密码
      * @param truePassword 加密后的密码
      * @param password 原始密码
      */
-    private void checkPassword(String truePassword, String password) {
+    private void checkPassword(String truePassword, String password, String mobile) {
         if (StringUtils.isBlank(password)) {
+            addLoginFailCount(mobile);
             throw new BizException(ResponseCodeEnum.USER_PASSWORD_ERROR);
         }
         boolean matches = new BCryptPasswordEncoder().matches(password, truePassword);
         if (!matches) {
+            addLoginFailCount(mobile);
             throw new BizException(ResponseCodeEnum.USER_PASSWORD_ERROR);
         }
+        redisTemplate.delete(LOGIN_FAIL_COUNT_KEY_PREFIX + ":" + mobile);
     }
 
     /**
