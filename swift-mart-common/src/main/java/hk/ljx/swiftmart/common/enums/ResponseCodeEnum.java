@@ -16,6 +16,11 @@ public enum ResponseCodeEnum implements BaseExceptionInterface {
     PARAM_NOT_VALID("10001", "参数错误"),
 
     // ----------- 业务异常状态码 -----------
+    USER_MOBILE_EXISTS("20001", "该手机号已注册"),
+    USER_VERIFY_CODE_ERROR("20002", "验证码错误"),
+    USER_MOBILE_NOT_REGISTERED("20003", "该手机号未注册"),
+    USER_PASSWORD_ERROR("20004", "密码错误"),
+    USER_STATUS_DISABLED("20005", "账号已被禁用，请联系管理员"),
 
     VERIFY_CODE_TYPE_ERROR("20006", "验证码类型错误"),
     VERIFY_CODE_SEND_TOO_FREQUENT("20007", "验证码发送过于频繁，请稍后再试"),

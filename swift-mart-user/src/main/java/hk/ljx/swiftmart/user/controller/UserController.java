@@ -4,6 +4,7 @@ import hk.ljx.swiftmart.common.aspect.ApiOperationLog;
 import hk.ljx.swiftmart.common.utils.Response;
 import hk.ljx.swiftmart.user.modal.vo.LoginUserRspVO;
 import hk.ljx.swiftmart.user.modal.vo.RegisterUserReqVO;
+import hk.ljx.swiftmart.user.modal.vo.SendVerifyCodeReqVO;
 import hk.ljx.swiftmart.user.modal.vo.UserLoginReqVO;
 import hk.ljx.swiftmart.user.service.UserService;
 import jakarta.annotation.Resource;
@@ -30,6 +31,12 @@ public class UserController {
     @PostMapping("/login")
     public Response<LoginUserRspVO> login (@Validated @RequestBody UserLoginReqVO userLoginReqVO) {
         return userService.login(userLoginReqVO);
+    }
+
+    @ApiOperationLog(description = "发送验证码")
+    @PostMapping("/code/send")
+    public Response<?> sendVerifyCode (@Validated @RequestBody SendVerifyCodeReqVO sendVerifyCodeReqVO) {
+        return userService.sendVerifyCode(sendVerifyCodeReqVO);
     }
 }
 

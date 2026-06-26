@@ -2,32 +2,57 @@ package hk.ljx.swiftmart.user.service.impl;
 
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.util.RandomUtil;
-import hk.ljx.swiftmart.common.ResponseCodeEnum.ResponseCodeEnum;
 import hk.ljx.swiftmart.common.domain.dataobject.UserDO;
 import hk.ljx.swiftmart.common.domain.mapper.UserDOMapper;
+import hk.ljx.swiftmart.common.enums.ResponseCodeEnum;
 import hk.ljx.swiftmart.common.exception.BizException;
 import hk.ljx.swiftmart.common.utils.Response;
 import hk.ljx.swiftmart.user.enums.LoginTypeEnum;
 import hk.ljx.swiftmart.user.enums.UserStatusEnum;
+import hk.ljx.swiftmart.user.enums.VerifyCodeTypeEnum;
 import hk.ljx.swiftmart.user.modal.vo.LoginUserRspVO;
 import hk.ljx.swiftmart.user.modal.vo.RegisterUserReqVO;
+import hk.ljx.swiftmart.user.modal.vo.SendVerifyCodeReqVO;
 import hk.ljx.swiftmart.user.modal.vo.UserLoginReqVO;
 import hk.ljx.swiftmart.user.service.UserService;
 import io.micrometer.common.util.StringUtils;
 import jakarta.annotation.Resource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.dao.DataAccessException;
+import org.springframework.data.redis.core.RedisOperations;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.Objects;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 
 @Service
+@Slf4j
 public class UserServiceImpl implements UserService {
 
-    private static final Logger log = LoggerFactory.getLogger(UserServiceImpl.class);
     @Resource
     private UserDOMapper userDOMapper;
+
+    @Resource
+    private RedisTemplate<String, Object> redisTemplate;
+
+    @Qualifier("bizExecutor")
+    @Resource
+    private Executor bizExecutor;
+
+    // Redis 中验证码的 Key 前缀
+    private static final String VERIFY_CODE_KEY_PREFIX = "verify_code:";
+    // Redis 中发送频率限制的 Key 前缀
+    private static final String VERIFY_CODE_LIMIT_KEY_PREFIX = "verify_code_limit:";
+    // 验证码过期时间（分钟）
+    private static final Long VERIFY_CODE_EXPIRE_MINUTES = 5L;
+    // 发送频率限制时间（秒）
+    private static final Long VERIFY_CODE_LIMIT_SECONDS = 60L;
 
     /**
      * 用户注册
@@ -100,6 +125,50 @@ public class UserServiceImpl implements UserService {
                         .build()
                 ).build();
         return Response.success(userRspVO);
+    }
+
+    @Override
+    public Response<?> sendVerifyCode(SendVerifyCodeReqVO sendVerifyCodeReqVO) {
+        String mobile = sendVerifyCodeReqVO.getMobile();
+        Integer type = sendVerifyCodeReqVO.getType();
+
+        VerifyCodeTypeEnum verifyCodeType = VerifyCodeTypeEnum.valueOf(type);
+        if (Objects.isNull(verifyCodeType)) {
+            throw new BizException(ResponseCodeEnum.USER_VERIFY_CODE_ERROR);
+        }
+
+        String limitKey = VERIFY_CODE_LIMIT_KEY_PREFIX + verifyCodeType.getPurpose() + ":" + mobile;
+        if (redisTemplate.hasKey(limitKey)) {
+            throw new BizException(ResponseCodeEnum.VERIFY_CODE_SEND_TOO_FREQUENT);
+        }
+
+        String key = VERIFY_CODE_KEY_PREFIX + verifyCodeType.getPurpose() + mobile;
+        String verifyCode = RandomUtil.randomNumbers(6);
+        redisTemplate.executePipelined(new SessionCallback<Void>() {
+            @Override
+            public Void execute(RedisOperations redisOperations) {
+                redisOperations.opsForValue().set(limitKey, "1", VERIFY_CODE_LIMIT_SECONDS, TimeUnit.SECONDS);
+                redisOperations.opsForValue().set(key, verifyCode, VERIFY_CODE_EXPIRE_MINUTES, TimeUnit.MINUTES);
+                return null;
+            }
+        });
+        // 异步发送验证码
+        bizExecutor.execute(() -> sendSms(mobile, verifyCode));
+        return Response.success();
+    }
+
+    /**
+     * 发送验证码
+     * @param mobile 手机号
+     * @param verifyCode 验证码
+     */
+    private void sendSms(String mobile, String verifyCode) {
+        try {
+            // TODO: 发送短信
+            log.info("发送短信到{}，验证码为{}", mobile, verifyCode);
+        } catch (Exception e) {
+            log.error("发送短信失败，手机号为{}", mobile);
+        }
     }
 
     /**
