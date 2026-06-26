@@ -18,15 +18,16 @@ import hk.ljx.swiftmart.user.service.UserService;
 import io.micrometer.common.util.StringUtils;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.dao.DataAccessException;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.SessionCallback;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -44,6 +45,14 @@ public class UserServiceImpl implements UserService {
     @Qualifier("bizExecutor")
     @Resource
     private Executor bizExecutor;
+
+    private final DefaultRedisScript<Long> checkAndDeleteVerifyCodeScript;
+
+    public UserServiceImpl() {
+        checkAndDeleteVerifyCodeScript = new DefaultRedisScript<>();
+        checkAndDeleteVerifyCodeScript.setLocation(new ClassPathResource("lua/check_and_delete_verify_code.lua"));
+        checkAndDeleteVerifyCodeScript.setResultType(Long.class);
+    }
 
     // Redis 中验证码的 Key 前缀
     private static final String VERIFY_CODE_KEY_PREFIX = "verify_code:";
@@ -178,15 +187,12 @@ public class UserServiceImpl implements UserService {
             throw new BizException(ResponseCodeEnum.USER_VERIFY_CODE_ERROR);
         }
         String key = VERIFY_CODE_KEY_PREFIX + purpose + ":" + mobile;
-        Object cacheCode = redisTemplate.opsForValue().get(key);
-        if (cacheCode == null){
+        Long result = redisTemplate.execute(checkAndDeleteVerifyCodeScript,
+                Collections.singletonList(key),
+                verifyCode);
+        if (result == null || result == 0) {
             throw new BizException(ResponseCodeEnum.USER_VERIFY_CODE_ERROR);
         }
-        // 调用验证码服务
-        if (!cacheCode.equals(verifyCode)) {
-            throw new BizException(ResponseCodeEnum.USER_VERIFY_CODE_ERROR);
-        }
-        redisTemplate.delete(key);
     }
 
     /**
