@@ -17,6 +17,7 @@ import hk.ljx.swiftmart.order.enums.OrderStatusEnum;
 import hk.ljx.swiftmart.order.modal.vo.DoSeckillReqVO;
 import hk.ljx.swiftmart.order.modal.vo.DoSeckillRspVO;
 import hk.ljx.swiftmart.order.service.OrderService;
+import hk.ljx.swiftmart.order.utils.OrderLockUtils;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
@@ -45,6 +46,9 @@ public class OrderServiceImpl implements OrderService {
     @Resource
     private TransactionTemplate transactionTemplate;
 
+    @Resource
+    private OrderLockUtils orderLockUtils;
+
     /**
      * 秒杀下单
      *
@@ -59,6 +63,23 @@ public class OrderServiceImpl implements OrderService {
         // 校验是否登录
         long loginId = StpUtil.getLoginIdAsLong();
         log.info("当前用户ID:{}，正在秒杀", loginId);
+
+        String key = loginId + ":" + activityId + ":" + goodsId;
+        if (!orderLockUtils.tryLock(key)) {
+            log.warn("==> 应用层锁拦截重复下单, userId: {}, activityId: {}, goodsId: {}", loginId, activityId, goodsId);
+            throw new BizException(ResponseCodeEnum.SECKILL_ORDER_PROCESSING);
+        }
+        try {
+            return processSeckill(activityId, goodsId, loginId);
+        } finally {
+            orderLockUtils.unlock(key);
+        }
+    }
+
+    /**
+     * 秒杀下单核心逻辑
+     */
+    private Response<DoSeckillRspVO> processSeckill(Long activityId, Long goodsId, long loginId) {
         // 校验秒杀活动
         SeckillActivityDO activityDO = seckillActivityDOMapper.selectByPrimaryKey(activityId);
         if (Objects.isNull(activityDO)) {
