@@ -1,11 +1,14 @@
 package hk.ljx.swiftmart.goods.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
+import hk.ljx.swiftmart.common.constant.RedisKeyConstants;
 import hk.ljx.swiftmart.common.domain.dataobject.*;
 import hk.ljx.swiftmart.common.domain.mapper.*;
 import hk.ljx.swiftmart.common.enums.ActivityStatusEnum;
 import hk.ljx.swiftmart.common.enums.ResponseCodeEnum;
 import hk.ljx.swiftmart.common.exception.BizException;
+import hk.ljx.swiftmart.common.utils.JsonUtils;
 import hk.ljx.swiftmart.common.utils.Response;
 import hk.ljx.swiftmart.goods.model.vo.FindSeckillGoodsDetailReqVO;
 import hk.ljx.swiftmart.goods.model.vo.FindSeckillGoodsDetailRspVO;
@@ -15,11 +18,14 @@ import hk.ljx.swiftmart.goods.service.GoodsService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -41,6 +47,9 @@ public class GoodsServiceImpl implements GoodsService {
     @Resource
     private GoodsDetailDOMapper goodsDetailDOMapper;
 
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
+
 
     /**
      * 查询秒杀商品列表
@@ -52,6 +61,30 @@ public class GoodsServiceImpl implements GoodsService {
     public Response<List<FindSeckillGoodsListRspVO>> findSeckillGoodsList(FindSeckillGoodsListReqVO reqVO) {
         Long activityId = reqVO.getActivityId();
         log.info("查询秒杀商品列表,活动ID:{}", activityId);
+
+        // 构建 Redis 缓存 Key
+        String redisKey = RedisKeyConstants.GOODS_LIST_PREFIX + activityId;
+
+        // 先查 Redis 缓存
+        String redisJsonValue = stringRedisTemplate.opsForValue().get(redisKey);
+
+        // 缓存不为空
+        if (StrUtil.isNotBlank(redisJsonValue)) {
+            log.info("==> 命中商品列表缓存, redisKey: {}", redisKey);
+            // 手动将 String 字符串，反序列化为商品列表
+            List<FindSeckillGoodsListRspVO> cachedList = JsonUtils
+                    .parseArray(redisJsonValue, FindSeckillGoodsListRspVO.class);
+            // 设置库存字段值
+            supplementStock(cachedList, activityId);
+            // 实时重新计算活动状态
+            FindSeckillGoodsListRspVO first = cachedList.get(0);
+            ActivityStatusEnum activityStatusEnum = calculateActivityStatus(first.getBeginTime(), first.getEndTime());
+            cachedList.forEach(item ->
+                    item.setActivityStatus(activityStatusEnum.getStatus()));
+
+            return Response.success(cachedList);
+        }
+
         // 查询活动消息
         SeckillActivityDO activityDO = seckillActivityDOMapper.selectByPrimaryKey(activityId);
         if (Objects.isNull(activityDO)) {
@@ -70,7 +103,7 @@ public class GoodsServiceImpl implements GoodsService {
         // 将商品和 id 映射为 Map 方便查询
         Map<Long, GoodsDO> goodsDOMap = goodsDOS.stream().collect(Collectors.toMap(GoodsDO::getId, goods -> goods));
         // 计算活动状态
-        ActivityStatusEnum activityStatusEnum = calculateActivityStatus(activityDO);
+        ActivityStatusEnum activityStatusEnum = calculateActivityStatus(activityDO.getBeginTime(), activityDO.getEndTime());
         // 组装响应数据
         ArrayList<FindSeckillGoodsListRspVO> listRspVOS = new ArrayList<>();
         for (SeckillGoodsDO seckillGoodsDO : seckillGoodsDOList) {
@@ -93,7 +126,35 @@ public class GoodsServiceImpl implements GoodsService {
             }
             listRspVOS.add(goodsListRspVO);
         }
+
+        // 将商品列表写入 Redis 缓存
+        log.info("==> 商品列表缓存未命中，将数据写入 Redis, redisKey: {}", redisKey);
+        stringRedisTemplate.opsForValue().set(redisKey, JsonUtils.toJsonString(listRspVOS),
+                RedisKeyConstants.GOODS_LIST_TTL_MINUTES, TimeUnit.MINUTES);
+
         return Response.success(listRspVOS);
+    }
+
+    /**
+     * 实时补充库存字段
+     * @param goodsList
+     * @param activityId
+     */
+    private void supplementStock(List<FindSeckillGoodsListRspVO> goodsList, Long activityId) {
+        // 根据活动 ID 查询秒杀商品的实时库存（仅查 id 和 seckill_stock 字段，减少 IO 开销）
+        List<SeckillGoodsDO> seckillGoodsDOS = seckillGoodsDOMapper.selectStockByActivityId(activityId);
+
+        // 构建 ID -> 库存的映射
+        Map<Long, Integer> stockMap = seckillGoodsDOS.stream()
+                .collect(Collectors.toMap(SeckillGoodsDO::getId, SeckillGoodsDO::getSeckillStock));
+
+        // 补充库存到缓存中的商品列表
+        for (FindSeckillGoodsListRspVO rspVO : goodsList) {
+            Integer stock = stockMap.get(rspVO.getId());
+            if (Objects.nonNull(stock)) {
+                rspVO.setSeckillStock(stock);
+            }
+        }
     }
 
     @Override
@@ -125,7 +186,7 @@ public class GoodsServiceImpl implements GoodsService {
             urlList = goodsImageDOList.stream().map(GoodsImgDO::getImgUrl).toList();
         }
         // 计算活动状态
-        ActivityStatusEnum activityStatusEnum = calculateActivityStatus(activityDO);
+        ActivityStatusEnum activityStatusEnum = calculateActivityStatus(activityDO.getBeginTime(), activityDO.getEndTime());
         // 拼装
         FindSeckillGoodsDetailRspVO detailRspVO = new FindSeckillGoodsDetailRspVO();
         detailRspVO.setId(seckillGoodsDO.getId());
@@ -153,14 +214,15 @@ public class GoodsServiceImpl implements GoodsService {
     /**
      * 计算活动状态
      *
-     * @param activityDO
+     * @param beginTime
+     * @Param endTime
      * @return
      */
-    private ActivityStatusEnum calculateActivityStatus(SeckillActivityDO activityDO) {
+    private ActivityStatusEnum calculateActivityStatus(LocalDateTime beginTime, LocalDateTime endTime) {
         LocalDateTime now = LocalDateTime.now();
-        if (now.isBefore(activityDO.getBeginTime())) {
+        if (now.isBefore(beginTime)) {
             return ActivityStatusEnum.NOT_STARTED;
-        } else if (now.isAfter(activityDO.getEndTime())) {
+        } else if (now.isAfter(endTime)) {
             return ActivityStatusEnum.ENDED;
         } else {
             return ActivityStatusEnum.ING;
