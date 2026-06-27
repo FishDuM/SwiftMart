@@ -12,26 +12,26 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class SeckillGoodsDO {
+public class SeckillOrderDO {
     private Long id;
+
+    private Long userId;
 
     private Long activityId;
 
     private Long goodsId;
 
-    private String seckillTitle;
-
-    private String seckillImg;
+    private String orderNo;
 
     private BigDecimal seckillPrice;
 
-    private Integer seckillTotal;
+    private String goodsName;
 
-    private Integer seckillStock;
+    private String goodsImg;
 
-    private Integer seckillLimit;
+    private Integer status;
 
-    private Integer sort;
+    private LocalDateTime expireTime;
 
     private Integer isDeleted;
 

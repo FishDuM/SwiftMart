@@ -143,3 +143,5 @@ VALUES (1,
 INSERT INTO t_goods_detail (goods_id, detail_content)
 VALUES (2,
         '<h2>MacBook Pro 14英寸 M3 Pro</h2><p>M3 Pro 芯片，14 英寸 Liquid Retina XDR 显示屏。</p><ul><li>最高 18 小时电池续航</li><li>最高 36GB 统一内存</li><li>三个 Thunderbolt 4 端口</li></ul>');
+
+ALTER TABLE t_seckill_goods DROP COLUMN `version`;

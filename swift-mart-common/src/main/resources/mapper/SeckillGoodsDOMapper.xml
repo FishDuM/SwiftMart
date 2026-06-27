@@ -12,14 +12,13 @@
     <result column="seckill_stock" jdbcType="INTEGER" property="seckillStock" />
     <result column="seckill_limit" jdbcType="INTEGER" property="seckillLimit" />
     <result column="sort" jdbcType="INTEGER" property="sort" />
-    <result column="version" jdbcType="INTEGER" property="version" />
     <result column="is_deleted" jdbcType="TINYINT" property="isDeleted" />
     <result column="create_time" jdbcType="TIMESTAMP" property="createTime" />
     <result column="update_time" jdbcType="TIMESTAMP" property="updateTime" />
   </resultMap>
   <sql id="Base_Column_List">
     id, activity_id, goods_id, seckill_title, seckill_img, seckill_price, seckill_total, 
-    seckill_stock, seckill_limit, sort, version, is_deleted, create_time, update_time
+    seckill_stock, seckill_limit, sort, is_deleted, create_time, update_time
   </sql>
   <select id="selectByPrimaryKey" parameterType="java.lang.Long" resultMap="BaseResultMap">
     select 
@@ -38,7 +37,7 @@
   </select>
 
   <select id="selectByActivityIdAndGoodsId"
-          resultType="hk.ljx.swiftmart.common.domain.dataobject.SeckillGoodsDO">
+          resultMap="BaseResultMap">
     select
     <include refid="Base_Column_List"/>
     from t_seckill_goods
@@ -215,5 +214,12 @@
       create_time = #{createTime,jdbcType=TIMESTAMP},
       update_time = #{updateTime,jdbcType=TIMESTAMP}
     where id = #{id,jdbcType=BIGINT}
+  </update>
+
+  <update id="deductStock">
+    update t_seckill_goods
+    set seckill_stock = seckill_stock - 1
+    where id = #{id,jdbcType=BIGINT}
+    and seckill_stock > 0
   </update>
 </mapper>
