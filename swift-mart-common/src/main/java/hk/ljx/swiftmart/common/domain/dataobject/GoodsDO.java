@@ -5,25 +5,25 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Date;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class UserDO {
+public class GoodsDO {
     private Long id;
 
-    private String nickname;
+    private String goodsName;
 
-    private String password;
+    private String goodsImg;
 
-    private String mobile;
-
-    private String avatar;
+    private BigDecimal goodsPrice;
 
     private Integer status;
+
+    private Integer isDeleted;
 
     private LocalDateTime createTime;
 

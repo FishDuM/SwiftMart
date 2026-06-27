@@ -6,24 +6,23 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.Date;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class UserDO {
+public class SeckillActivityDO {
     private Long id;
 
-    private String nickname;
+    private String activityName;
 
-    private String password;
+    private LocalDateTime beginTime;
 
-    private String mobile;
-
-    private String avatar;
+    private LocalDateTime endTime;
 
     private Integer status;
+
+    private String description;
 
     private LocalDateTime createTime;
 

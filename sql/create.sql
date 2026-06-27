@@ -101,3 +101,22 @@ CREATE TABLE `t_seckill_order` (
                                    KEY `idx_user_id` (`user_id`),
                                    KEY `idx_activity_id` (`activity_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='秒杀订单表';
+
+-- 商品数据
+INSERT INTO t_goods (id, goods_name, goods_img, goods_price, status, is_deleted)
+VALUES (1, 'iPhone 15 Pro Max 256GB 深空黑色', 'https://img.quanxiaoha.com/iphone15promax.jpg', 9999.00, 1, 0),
+       (2, 'MacBook Pro 14英寸 M3 Pro', 'https://img.quanxiaoha.com/macbookpro14.jpg', 14999.00, 1, 0),
+       (3, 'AirPods Pro 2 USB-C', 'https://img.quanxiaoha.com/airpodspro2.jpg', 1899.00, 1, 0);
+
+-- 秒杀活动
+INSERT INTO t_seckill_activity (id, activity_name, begin_time, end_time, status, description)
+VALUES (1, '618年中大促秒杀专场', '2026-04-01 00:00:00', '2026-12-31 23:59:59', 1, '全场商品低至5折起');
+
+-- 秒杀商品
+INSERT INTO t_seckill_goods (id, activity_id, goods_id, seckill_title, seckill_img, seckill_price, seckill_total,
+                             seckill_stock, seckill_limit, sort, version, is_deleted)
+VALUES (1, 1, 1, '【秒杀】iPhone 15 Pro Max 256GB', 'https://img.quanxiaoha.com/sk-iphone15promax.jpg', 8999.00, 100, 88,
+        1, 1, 0, 0),
+       (2, 1, 2, '【秒杀】MacBook Pro 14英寸', 'https://img.quanxiaoha.com/sk-macbookpro14.jpg', 12999.00, 50, 42, 1, 2,
+        0, 0),
+       (3, 1, 3, '【秒杀】AirPods Pro 2', 'https://img.quanxiaoha.com/sk-airpodspro2.jpg', 1499.00, 200, 166, 1, 3, 0, 0);
