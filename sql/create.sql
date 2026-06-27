@@ -120,3 +120,26 @@ VALUES (1, 1, 1, '【秒杀】iPhone 15 Pro Max 256GB', 'https://img.quanxiaoha.
        (2, 1, 2, '【秒杀】MacBook Pro 14英寸', 'https://img.quanxiaoha.com/sk-macbookpro14.jpg', 12999.00, 50, 42, 1, 2,
         0, 0),
        (3, 1, 3, '【秒杀】AirPods Pro 2', 'https://img.quanxiaoha.com/sk-airpodspro2.jpg', 1499.00, 200, 166, 1, 3, 0, 0);
+
+-- 为商品 ID=1 (iPhone 15 Pro Max 256GB) 插入轮播图
+INSERT INTO t_goods_img (goods_id, img_url, sort)
+VALUES (1, 'https://img.quanxiaoha.com/goods/iphone15promax-1.jpg', 1),
+       (1, 'https://img.quanxiaoha.com/goods/iphone15promax-2.jpg', 2),
+       (1, 'https://img.quanxiaoha.com/goods/iphone15promax-3.jpg', 3),
+       (1, 'https://img.quanxiaoha.com/goods/iphone15promax-4.jpg', 4);
+
+-- 为商品 ID=2 (MacBook Pro 14英寸 M3 Pro) 插入轮播图
+INSERT INTO t_goods_img (goods_id, img_url, sort)
+VALUES (2, 'https://img.quanxiaoha.com/goods/macbookpro14-1.jpg', 1),
+       (2, 'https://img.quanxiaoha.com/goods/macbookpro14-2.jpg', 2),
+       (2, 'https://img.quanxiaoha.com/goods/macbookpro14-3.jpg', 3);
+
+-- 为商品 ID=1 (iPhone 15 Pro Max 256GB) 插入详情
+INSERT INTO t_goods_detail (goods_id, detail_content)
+VALUES (1,
+        '<h2>iPhone 15 Pro Max 256GB</h2><p>A17 Pro 芯片，钛金属设计，4800 万像素主摄。</p><ul><li>6.7 英寸超视网膜 XDR 显示屏</li><li>最长 29 小时视频播放</li><li>支持 USB 3，传输速度最高可达 10Gb/s</li></ul>');
+
+-- 为商品 ID=2 (MacBook Pro 14英寸 M3 Pro) 插入详情
+INSERT INTO t_goods_detail (goods_id, detail_content)
+VALUES (2,
+        '<h2>MacBook Pro 14英寸 M3 Pro</h2><p>M3 Pro 芯片，14 英寸 Liquid Retina XDR 显示屏。</p><ul><li>最高 18 小时电池续航</li><li>最高 36GB 统一内存</li><li>三个 Thunderbolt 4 端口</li></ul>');

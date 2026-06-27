@@ -1,22 +1,22 @@
 package hk.ljx.swiftmart.goods.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
-import hk.ljx.swiftmart.common.domain.dataobject.GoodsDO;
-import hk.ljx.swiftmart.common.domain.dataobject.SeckillActivityDO;
-import hk.ljx.swiftmart.common.domain.dataobject.SeckillGoodsDO;
-import hk.ljx.swiftmart.common.domain.mapper.GoodsDOMapper;
-import hk.ljx.swiftmart.common.domain.mapper.SeckillActivityDOMapper;
-import hk.ljx.swiftmart.common.domain.mapper.SeckillGoodsDOMapper;
+import hk.ljx.swiftmart.common.domain.dataobject.*;
+import hk.ljx.swiftmart.common.domain.mapper.*;
 import hk.ljx.swiftmart.common.enums.ActivityStatusEnum;
 import hk.ljx.swiftmart.common.enums.ResponseCodeEnum;
 import hk.ljx.swiftmart.common.exception.BizException;
 import hk.ljx.swiftmart.common.utils.Response;
+import hk.ljx.swiftmart.goods.model.vo.FindSeckillGoodsDetailReqVO;
+import hk.ljx.swiftmart.goods.model.vo.FindSeckillGoodsDetailRspVO;
 import hk.ljx.swiftmart.goods.model.vo.FindSeckillGoodsListReqVO;
 import hk.ljx.swiftmart.goods.model.vo.FindSeckillGoodsListRspVO;
 import hk.ljx.swiftmart.goods.service.GoodsService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -34,6 +34,12 @@ public class GoodsServiceImpl implements GoodsService {
 
     @Resource
     private GoodsDOMapper goodsDOMapper;
+
+    @Resource
+    private GoodsImgDOMapper goodsImgDOMapper;
+
+    @Resource
+    private GoodsDetailDOMapper goodsDetailDOMapper;
 
 
     /**
@@ -79,6 +85,7 @@ public class GoodsServiceImpl implements GoodsService {
             goodsListRspVO.setActivityStatus(activityStatusEnum.getStatus());
             goodsListRspVO.setBeginTime(activityDO.getBeginTime());
             goodsListRspVO.setEndTime(activityDO.getEndTime());
+            goodsListRspVO.setGoodsId(seckillGoodsDO.getGoodsId());
 
             GoodsDO goodsDO = goodsDOMap.get(seckillGoodsDO.getGoodsId());
             if (Objects.nonNull(goodsDO)) {
@@ -87,6 +94,60 @@ public class GoodsServiceImpl implements GoodsService {
             listRspVOS.add(goodsListRspVO);
         }
         return Response.success(listRspVOS);
+    }
+
+    @Override
+    public Response<FindSeckillGoodsDetailRspVO> findSeckillGoodsDetail(FindSeckillGoodsDetailReqVO reqVO) {
+        Long goodsId = reqVO.getGoodsId();
+        Long activityId = reqVO.getActivityId();
+        log.info("查询秒杀商品详情,商品ID:{},活动ID:{}", goodsId, activityId);
+        // 查询秒杀活动
+        SeckillActivityDO activityDO = seckillActivityDOMapper.selectByPrimaryKey(activityId);
+        if (Objects.isNull(activityDO)) {
+            throw new BizException(ResponseCodeEnum.SECKILL_ACTIVITY_NOT_EXIST);
+        }
+        // 查询秒杀商品
+        SeckillGoodsDO seckillGoodsDO = seckillGoodsDOMapper.selectByPrimaryKey(goodsId);
+        if (Objects.isNull(seckillGoodsDO)) {
+            throw new BizException(ResponseCodeEnum.SECKILL_GOODS_NOT_EXIST);
+        }
+        // 查询商品
+        GoodsDO goodsDO = goodsDOMapper.selectByPrimaryKey(seckillGoodsDO.getGoodsId());
+        if (Objects.isNull(goodsDO)) {
+            throw new BizException(ResponseCodeEnum.SECKILL_GOODS_NOT_EXIST);
+        }
+        // 查询商品详情
+        GoodsDetailDO goodsDetailDO = goodsDetailDOMapper.selectByPrimaryKey(goodsId);
+        // 查询商品图片
+        List<GoodsImgDO> goodsImageDOList = goodsImgDOMapper.selectByGoodsId(seckillGoodsDO.getGoodsId());
+        List<String> urlList = null;
+        if (!CollectionUtils.isEmpty(goodsImageDOList)) {
+            urlList = goodsImageDOList.stream().map(GoodsImgDO::getImgUrl).toList();
+        }
+        // 计算活动状态
+        ActivityStatusEnum activityStatusEnum = calculateActivityStatus(activityDO);
+        // 拼装
+        FindSeckillGoodsDetailRspVO detailRspVO = new FindSeckillGoodsDetailRspVO();
+        detailRspVO.setId(seckillGoodsDO.getId());
+        detailRspVO.setGoodsId(goodsDO.getId());
+        detailRspVO.setActivityId(seckillGoodsDO.getActivityId());
+        detailRspVO.setGoodsImgs(urlList);
+        detailRspVO.setSeckillPrice(seckillGoodsDO.getSeckillPrice());
+        detailRspVO.setSeckillTotal(seckillGoodsDO.getSeckillTotal());
+        detailRspVO.setSeckillStock(seckillGoodsDO.getSeckillStock());
+        detailRspVO.setActivityStatus(activityStatusEnum.getStatus());
+        detailRspVO.setBeginTime(activityDO.getBeginTime());
+        detailRspVO.setEndTime(activityDO.getEndTime());
+
+        if (Objects.nonNull(goodsDO)) {
+            detailRspVO.setGoodsName(goodsDO.getGoodsName());
+            detailRspVO.setGoodsPrice(goodsDO.getGoodsPrice());
+        }
+
+        if (Objects.nonNull(goodsDetailDO)) {
+            detailRspVO.setGoodsDetail(goodsDetailDO.getDetailContent());
+        }
+        return Response.success(detailRspVO);
     }
 
     /**

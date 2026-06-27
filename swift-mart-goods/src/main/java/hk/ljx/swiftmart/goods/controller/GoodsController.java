@@ -2,6 +2,8 @@ package hk.ljx.swiftmart.goods.controller;
 
 import hk.ljx.swiftmart.common.aspect.ApiOperationLog;
 import hk.ljx.swiftmart.common.utils.Response;
+import hk.ljx.swiftmart.goods.model.vo.FindSeckillGoodsDetailReqVO;
+import hk.ljx.swiftmart.goods.model.vo.FindSeckillGoodsDetailRspVO;
 import hk.ljx.swiftmart.goods.model.vo.FindSeckillGoodsListReqVO;
 import hk.ljx.swiftmart.goods.model.vo.FindSeckillGoodsListRspVO;
 import hk.ljx.swiftmart.goods.service.GoodsService;
@@ -26,4 +28,15 @@ public class GoodsController {
         return goodsService.findSeckillGoodsList(reqVO);
     }
 
+    /**
+     * 查询秒杀商品详情
+     *
+     * @param reqVO
+     * @return
+     */
+    @PostMapping("/detail")
+    @ApiOperationLog(description = "查询秒杀商品详情")
+    public Response<FindSeckillGoodsDetailRspVO> getSeckillGoodsDetail(@RequestBody @Validated FindSeckillGoodsDetailReqVO reqVO) {
+        return goodsService.findSeckillGoodsDetail(reqVO);
+    }
 }

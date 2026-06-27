@@ -1,6 +1,8 @@
 package hk.ljx.swiftmart.goods.service;
 
 import hk.ljx.swiftmart.common.utils.Response;
+import hk.ljx.swiftmart.goods.model.vo.FindSeckillGoodsDetailReqVO;
+import hk.ljx.swiftmart.goods.model.vo.FindSeckillGoodsDetailRspVO;
 import hk.ljx.swiftmart.goods.model.vo.FindSeckillGoodsListReqVO;
 import hk.ljx.swiftmart.goods.model.vo.FindSeckillGoodsListRspVO;
 
@@ -15,4 +17,12 @@ public interface GoodsService {
      * @return
      */
     Response<List<FindSeckillGoodsListRspVO>> findSeckillGoodsList(FindSeckillGoodsListReqVO reqVO);
+
+    /**
+     * 查询秒杀商品详情
+     *
+     * @param reqVO
+     * @return
+     */
+    Response<FindSeckillGoodsDetailRspVO> findSeckillGoodsDetail(FindSeckillGoodsDetailReqVO reqVO);
 }
