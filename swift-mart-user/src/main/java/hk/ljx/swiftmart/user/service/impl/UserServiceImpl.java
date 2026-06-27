@@ -1,5 +1,7 @@
 package hk.ljx.swiftmart.user.service.impl;
 
+import cloud.tianai.captcha.application.ImageCaptchaApplication;
+import cloud.tianai.captcha.spring.plugins.secondary.SecondaryVerificationApplication;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.util.RandomUtil;
 import hk.ljx.swiftmart.common.domain.dataobject.UserDO;
@@ -53,6 +55,9 @@ public class UserServiceImpl implements UserService {
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
+
+    @Resource
+    private ImageCaptchaApplication imageCaptchaApplication;
 
     // 验证码过期时间 Lua 脚本
     private final DefaultRedisScript<Long> checkAndDeleteVerifyCodeScript;
@@ -178,7 +183,22 @@ public class UserServiceImpl implements UserService {
     public Response<?> sendVerifyCode(SendVerifyCodeReqVO sendVerifyCodeReqVO) {
         String mobile = sendVerifyCodeReqVO.getMobile();
         Integer type = sendVerifyCodeReqVO.getType();
+        String captchaId = sendVerifyCodeReqVO.getCaptchaId();
 
+        if (StringUtils.isBlank(captchaId)) {
+            throw new BizException(ResponseCodeEnum.CAPTCHA_VERIFICATION_FAILED);
+        }
+
+        // 判断 ImageCaptchaApplication 是否支持二次校验
+        boolean verified = false;
+        if (imageCaptchaApplication instanceof SecondaryVerificationApplication) {
+            verified = ((SecondaryVerificationApplication) imageCaptchaApplication).secondaryVerification(captchaId);
+        }
+        if (!verified) {
+            throw new BizException(ResponseCodeEnum.CAPTCHA_VERIFICATION_FAILED);
+        }
+
+        // 判断验证码类型是否合法
         VerifyCodeTypeEnum verifyCodeType = VerifyCodeTypeEnum.valueOf(type);
         if (Objects.isNull(verifyCodeType)) {
             throw new BizException(ResponseCodeEnum.VERIFY_CODE_TYPE_ERROR);

@@ -1,4 +1,4 @@
-package hk.ljx.swiftmart.common.config;
+package hk.ljx.swiftmart.user.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
