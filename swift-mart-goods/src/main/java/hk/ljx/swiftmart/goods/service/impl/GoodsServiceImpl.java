@@ -1,5 +1,6 @@
 package hk.ljx.swiftmart.goods.service.impl;
 
+import cn.hutool.cache.Cache;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import hk.ljx.swiftmart.common.constant.RedisKeyConstants;
@@ -57,6 +58,11 @@ public class GoodsServiceImpl implements GoodsService {
     @Resource
     private RedissonClient redissonClient;
 
+    @Resource
+    private Cache<String, String> goodsListLocalCache;
+
+    @Resource
+    private Cache<String, String> goodsDetailLocalCache;
 
     /**
      * 查询秒杀商品列表
@@ -72,6 +78,14 @@ public class GoodsServiceImpl implements GoodsService {
         // 构建 Redis 缓存 Key
         String redisKey = RedisKeyConstants.GOODS_LIST_PREFIX + activityId;
 
+        String localCachedValue = goodsListLocalCache.get(redisKey);
+        if (StrUtil.isNotBlank(localCachedValue)) {
+            log.info("==> 命中本地缓存（L1）, key: {}", redisKey);
+            // 反序列化
+            List<FindSeckillGoodsListRspVO> cachedList = processCachedGoodsList(localCachedValue, activityId);
+            return Response.success(cachedList);
+        }
+
         // 查询布隆过滤器
         RBloomFilter<Long> bloomFilter = redissonClient.getBloomFilter(SECKILL_ACTIVITY_BLOOM_KEY);
         if (bloomFilter.isExists() && !bloomFilter.contains(activityId)) {
@@ -79,14 +93,14 @@ public class GoodsServiceImpl implements GoodsService {
             throw new BizException(ResponseCodeEnum.SECKILL_ACTIVITY_NOT_EXIST);
         }
 
-        // 先查 Redis 缓存
+        // 查 Redis 缓存
         String redisJsonValue = stringRedisTemplate.opsForValue().get(redisKey);
-
         // 缓存不为空
         if (StrUtil.isNotEmpty(redisJsonValue)) {
             // 判断是不是缓存的 NULL 值
             if (redisJsonValue.equals(NULL_CACHE_VALUE)) {
                 log.info("==> 命中空值缓存，活动不存在, redisKey: {}", redisKey);
+                goodsListLocalCache.put(redisKey, NULL_CACHE_VALUE);
                 throw new BizException(ResponseCodeEnum.SECKILL_ACTIVITY_NOT_EXIST);
             }
 
@@ -101,7 +115,8 @@ public class GoodsServiceImpl implements GoodsService {
             ActivityStatusEnum activityStatusEnum = calculateActivityStatus(first.getBeginTime(), first.getEndTime());
             cachedList.forEach(item ->
                     item.setActivityStatus(activityStatusEnum.getStatus()));
-
+            // 放入 caffeine
+            goodsListLocalCache.put(redisKey, JsonUtils.toJsonString(cachedList));
             return Response.success(cachedList);
         }
 
@@ -149,8 +164,9 @@ public class GoodsServiceImpl implements GoodsService {
             listRspVOS.add(goodsListRspVO);
         }
 
-        // 将商品列表写入 Redis 缓存
+        // 将商品列表写入缓存
         log.info("==> 商品列表缓存未命中，将数据写入 Redis, redisKey: {}", redisKey);
+        goodsListLocalCache.put(redisKey, JsonUtils.toJsonString(listRspVOS));
         Long endTime = RedisKeyConstants.calculateTtlSeconds(activityDO.getEndTime());
         if (Objects.nonNull(endTime) && endTime > 0) {
             // 活动未结束
@@ -159,8 +175,27 @@ public class GoodsServiceImpl implements GoodsService {
           // 活动结束，余温缓存
             stringRedisTemplate.opsForValue().set(redisKey, JsonUtils.toJsonString(listRspVOS), RedisKeyConstants.ENDED_ACTIVITY_TTL_MINUTES, TimeUnit.MINUTES);
         }
-
         return Response.success(listRspVOS);
+    }
+
+    /**
+     * 命中缓存商品列表反序列化
+     * @param value
+     * @param activityId
+     * @return
+     */
+    private List<FindSeckillGoodsListRspVO> processCachedGoodsList(String value, Long activityId) {
+        List<FindSeckillGoodsListRspVO> cachedList = JsonUtils
+                .parseArray(value, FindSeckillGoodsListRspVO.class);
+        // 设置库存字段值
+        supplementStock(cachedList, activityId);
+        // 实时重新计算活动状态
+        FindSeckillGoodsListRspVO first = cachedList.get(0);
+        ActivityStatusEnum activityStatusEnum = calculateActivityStatus(first.getBeginTime(), first.getEndTime());
+        cachedList.forEach(item ->
+                item.setActivityStatus(activityStatusEnum.getStatus()));
+
+        return cachedList;
     }
 
     /**
@@ -191,6 +226,20 @@ public class GoodsServiceImpl implements GoodsService {
         Long activityId = reqVO.getActivityId();
         log.info("查询秒杀商品详情,商品ID:{},活动ID:{}", goodsId, activityId);
 
+        String redisKey = RedisKeyConstants.GOODS_DETAIL_PREFIX + activityId + ":" + goodsId;
+
+        String localCachedValue = goodsDetailLocalCache.get(redisKey);
+        if (StrUtil.isNotBlank(localCachedValue)) {
+            log.info("==> 命中本地缓存（L1）, key: {}", redisKey);
+            // 防止缓存穿透，判断缓存是否是 NULL
+            if (Objects.equals(RedisKeyConstants.NULL_CACHE_VALUE, localCachedValue)) {
+                log.info("==> 命中空值缓存，商品不存在, redisKey: {}", redisKey);
+                throw new BizException(ResponseCodeEnum.SECKILL_GOODS_NOT_EXIST);
+            }
+            // 手动将 String 字符串，反序列化为商品详情对象, 并响应
+            return Response.success(processCachedGoodsDetail(localCachedValue, activityId, goodsId));
+        }
+
         // 布隆过滤器校验活动是否存在
         RBloomFilter<Long> activityBloom = redissonClient.getBloomFilter(RedisKeyConstants.SECKILL_ACTIVITY_BLOOM_KEY);
         if (activityBloom.isExists() && !activityBloom.contains(activityId)) {
@@ -215,17 +264,9 @@ public class GoodsServiceImpl implements GoodsService {
                 log.info("==> 命中空值缓存，活动不存在, redisKey: {}", key);
                 throw new BizException(ResponseCodeEnum.SECKILL_ACTIVITY_NOT_EXIST);
             }
-
             // 命中缓存
-            FindSeckillGoodsDetailRspVO goods = JsonUtils.parseObject(goodsJson, FindSeckillGoodsDetailRspVO.class);
-            SeckillGoodsDO seckillGoodsDO = seckillGoodsDOMapper.selectStockByActivityIdAndGoodsId(activityId, goodsId);
-            if (Objects.nonNull(seckillGoodsDO)) {
-                goods.setSeckillStock(seckillGoodsDO.getSeckillStock());
-            }
-            // 实时重新计算活动状态
-            ActivityStatusEnum activityStatusEnum = calculateActivityStatus(goods.getBeginTime(), goods.getEndTime());
-            goods.setActivityStatus(activityStatusEnum.getStatus());
-            return Response.success(goods);
+            goodsDetailLocalCache.put(redisKey, goodsJson);
+            return Response.success(processCachedGoodsDetail(goodsJson, activityId, goodsId));
         }
 
         // 查询秒杀活动
@@ -283,8 +324,21 @@ public class GoodsServiceImpl implements GoodsService {
         log.info("==> 商品详情缓存未命中，将数据写入 Redis, redisKey: {}", key);
         stringRedisTemplate.opsForValue().set(key, JsonUtils.toJsonString(detailRspVO),
                 RedisKeyConstants.GOODS_DETAIL_TTL_MINUTES, TimeUnit.MINUTES);
-
+        goodsDetailLocalCache.put(redisKey, JsonUtils.toJsonString(detailRspVO));
         return Response.success(detailRspVO);
+    }
+
+    private FindSeckillGoodsDetailRspVO processCachedGoodsDetail(String redisJsonValue, Long activityId, Long goodsId) {
+        // 命中缓存
+        FindSeckillGoodsDetailRspVO goods = JsonUtils.parseObject(redisJsonValue, FindSeckillGoodsDetailRspVO.class);
+        SeckillGoodsDO seckillGoodsDO = seckillGoodsDOMapper.selectStockByActivityIdAndGoodsId(activityId, goodsId);
+        if (Objects.nonNull(seckillGoodsDO)) {
+            goods.setSeckillStock(seckillGoodsDO.getSeckillStock());
+        }
+        // 实时重新计算活动状态
+        ActivityStatusEnum activityStatusEnum = calculateActivityStatus(goods.getBeginTime(), goods.getEndTime());
+        goods.setActivityStatus(activityStatusEnum.getStatus());
+        return goods;
     }
 
     /**
