@@ -28,8 +28,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static hk.ljx.swiftmart.common.constant.RedisKeyConstants.GOODS_DETAIL_PREFIX;
-import static hk.ljx.swiftmart.common.constant.RedisKeyConstants.GOODS_DETAIL_TTL_MINUTES;
+import static hk.ljx.swiftmart.common.constant.RedisKeyConstants.*;
 
 @Service
 @Slf4j
@@ -176,6 +175,12 @@ public class GoodsServiceImpl implements GoodsService {
         String goodsJson = stringRedisTemplate.opsForValue().get(key);
 
         if (StrUtil.isNotBlank(goodsJson)) {
+            // 判断是不是缓存的 NULL 值
+            if (goodsJson.equals(NULL_CACHE_VALUE)) {
+                log.info("==> 命中空值缓存，活动不存在, redisKey: {}", key);
+                throw new BizException(ResponseCodeEnum.SECKILL_ACTIVITY_NOT_EXIST);
+            }
+
             // 命中缓存
             FindSeckillGoodsDetailRspVO goods = JsonUtils.parseObject(goodsJson, FindSeckillGoodsDetailRspVO.class);
             SeckillGoodsDO seckillGoodsDO = seckillGoodsDOMapper.selectStockByActivityIdAndGoodsId(activityId, goodsId);
@@ -191,6 +196,8 @@ public class GoodsServiceImpl implements GoodsService {
         // 查询秒杀活动
         SeckillActivityDO activityDO = seckillActivityDOMapper.selectByPrimaryKey(activityId);
         if (Objects.isNull(activityDO)) {
+            // 缓存空值，防止缓存穿透
+            cacheNullValue(key);
             throw new BizException(ResponseCodeEnum.SECKILL_ACTIVITY_NOT_EXIST);
         }
         // 查询秒杀商品
@@ -354,6 +361,19 @@ public class GoodsServiceImpl implements GoodsService {
         log.info("==> 预热活动 {} 的 {} 个商品详情缓存完成", activityId, seckillGoodsDOS.size());
 
         return Response.success();
+    }
+
+    /**
+     * 缓存空值，防止缓存穿透
+     *
+     * @param redisKey
+     */
+    private void cacheNullValue(String redisKey) {
+        // 当数据库中查不到数据时，往 Redis 写入一个空值标记，短时间内不再查 DB
+        stringRedisTemplate.opsForValue().set(redisKey, NULL_CACHE_VALUE,
+                RedisKeyConstants.NULL_CACHE_TTL_MINUTES, TimeUnit.MINUTES);
+
+        log.info("==> 缓存空值，防止穿透, redisKey: {}, TTL: {}min", redisKey, RedisKeyConstants.NULL_CACHE_TTL_MINUTES);
     }
 
     /**
