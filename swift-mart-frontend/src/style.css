@@ -1,0 +1,20 @@
+/**
+ * 全局样式入口：按设计系统分层 import
+ * - tokens      : 设计变量（颜色 / 间距 / 圆角 / 阴影）
+ * - reset       : 基础重置
+ * - utilities   : 通用工具类
+ * - app-shell   : 商城头/尾
+ * - auth        : 登录 / 注册
+ * - mall        : 秒杀会场
+ * - detail      : 商品详情
+ * - result      : 订单结果 / 后台
+ */
+
+@import './shared/styles/tokens.css';
+@import './shared/styles/reset.css';
+@import './shared/styles/utilities.css';
+@import './shared/styles/app-shell.css';
+@import './shared/styles/auth.css';
+@import './shared/styles/mall.css';
+@import './shared/styles/detail.css';
+@import './shared/styles/result.css';

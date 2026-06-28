@@ -1,0 +1,114 @@
+/**
+ * 通用工具类（与 UnoCSS 互补，仅放项目反复用到的复合样式）
+ */
+
+.page-container {
+  width: min(var(--layout-max-width), calc(100% - var(--layout-gutter) * 2));
+  margin-inline: auto;
+  padding-block: var(--space-6) var(--space-12);
+}
+
+.section-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--space-5);
+}
+.section-title h2 {
+  margin: 0;
+  font-size: var(--font-2xl);
+  font-weight: 700;
+  color: var(--color-text);
+}
+.section-title small {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-md);
+}
+
+.muted {
+  color: var(--color-text-tertiary);
+}
+
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.tag-pill.is-warning {
+  background: #fff7e6;
+  color: var(--color-warning);
+}
+
+.tag-pill.is-success {
+  background: #e8f9ee;
+  color: var(--color-success);
+}
+
+.tag-pill.is-muted {
+  background: var(--color-bg-hover);
+  color: var(--color-text-secondary);
+}
+
+/* 横向滚动容器 */
+.scroll-row {
+  display: flex;
+  gap: var(--space-3);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+/* 骨架占位 */
+.skeleton-block {
+  background: linear-gradient(90deg, #f0f0f3 0%, #f7f7f9 50%, #f0f0f3 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: var(--radius-sm);
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* 通用 card 容器 */
+.card {
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-6);
+}
+
+/* 价格文字 */
+.price-primary {
+  color: var(--color-primary);
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+.price-strike {
+  color: var(--color-text-tertiary);
+  text-decoration: line-through;
+  font-size: var(--font-sm);
+}
+
+/* 响应式 */
+@media (max-width: 1100px) {
+  .hide-on-tablet {
+    display: none !important;
+  }
+}
+@media (max-width: 720px) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+}

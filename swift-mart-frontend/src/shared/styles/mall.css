@@ -1,0 +1,358 @@
+/**
+ * 秒杀会场页（列表）
+ */
+
+.mall-page {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.mall-banner {
+  position: relative;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: var(--space-5);
+  align-items: stretch;
+  min-height: 220px;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+
+.mall-banner__aside {
+  background: linear-gradient(180deg, #2d2d31 0%, #1d1d1f 100%);
+  color: var(--color-text-inverse);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.mall-banner__aside h1 {
+  margin: 0;
+  font-size: var(--font-3xl);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.mall-banner__aside small {
+  display: block;
+  margin-top: var(--space-2);
+  color: #b8b8bd;
+  font-size: var(--font-md);
+}
+
+.mall-banner__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 4px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 45, 58, 0.16);
+  color: #ff5d6c;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  width: fit-content;
+}
+
+.mall-banner__main {
+  background:
+    radial-gradient(circle at 80% 0, rgba(255, 184, 0, 0.18), transparent 50%),
+    linear-gradient(135deg, #fff5f6 0%, #ffffff 60%, #fff7e6 100%);
+  padding: var(--space-8) var(--space-10);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-3);
+}
+
+.mall-banner__main h2 {
+  margin: 0;
+  font-size: var(--font-3xl);
+  font-weight: 800;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+}
+
+.mall-banner__main p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-md);
+  max-width: 480px;
+}
+
+.mall-banner__main .mall-banner__cta {
+  margin-top: var(--space-3);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: fit-content;
+  padding: var(--space-3) var(--space-6);
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-weight: 600;
+  font-size: var(--font-md);
+  box-shadow: var(--shadow-primary);
+}
+
+.mall-filter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+}
+
+.mall-filter__tabs {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.mall-filter__tabs button {
+  border: 0;
+  background: transparent;
+  padding: 6px var(--space-3);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  font-size: var(--font-md);
+  font-weight: 500;
+  cursor: pointer;
+}
+.mall-filter__tabs button.is-active {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.mall-filter__activity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-sm);
+  color: var(--color-text-secondary);
+}
+
+.mall-filter__activity input {
+  width: 80px;
+  height: 32px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-2);
+  font-size: var(--font-md);
+  outline: 0;
+  color: var(--color-text);
+}
+.mall-filter__activity input:focus {
+  border-color: var(--color-primary);
+}
+
+.mall-filter__activity button {
+  height: 32px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-size: var(--font-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* 商品列表 */
+.goods-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.goods-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+  transition: transform var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out);
+}
+.goods-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+
+.goods-card__media {
+  position: relative;
+  aspect-ratio: 1;
+  background: #f7f7f9;
+  overflow: hidden;
+}
+.goods-card__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--duration-slow) var(--ease-out);
+}
+.goods-card:hover .goods-card__media img {
+  transform: scale(1.04);
+}
+
+.goods-card__tag {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-xs);
+  letter-spacing: 0.05em;
+}
+.goods-card__tag.is-secondary {
+  background: rgba(0, 0, 0, 0.6);
+  top: var(--space-8);
+}
+
+.goods-card__body {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.goods-card__title {
+  margin: 0;
+  font-size: var(--font-md);
+  font-weight: 500;
+  color: var(--color-text);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  line-height: 1.5;
+  min-height: 42px;
+}
+
+.goods-card__price-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+.goods-card__price {
+  color: var(--color-primary);
+  font-size: var(--font-2xl);
+  font-weight: 800;
+  font-family: var(--font-mono);
+}
+.goods-card__price-suffix {
+  font-size: var(--font-sm);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.goods-card__price-original {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-sm);
+  text-decoration: line-through;
+}
+
+.goods-card__progress {
+  margin-top: var(--space-1);
+}
+.goods-card__progress-bar {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-hover);
+  overflow: hidden;
+}
+.goods-card__progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary), #ff8a5d);
+  border-radius: var(--radius-full);
+  transition: width var(--duration-slow) var(--ease-out);
+}
+.goods-card__progress-text {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-1);
+  font-size: var(--font-xs);
+  color: var(--color-text-tertiary);
+}
+.goods-card__progress-text strong {
+  color: var(--color-primary);
+}
+
+.goods-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-4) var(--space-3);
+  border-top: 1px dashed var(--color-border-light);
+  font-size: var(--font-xs);
+  color: var(--color-text-tertiary);
+}
+
+.goods-card__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-weight: 600;
+  font-size: var(--font-xs);
+}
+.goods-card__action.is-disabled {
+  background: var(--color-bg-hover);
+  color: var(--color-text-tertiary);
+}
+
+/* 骨架屏 */
+.goods-grid-skeleton {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+.goods-card-skeleton {
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+}
+.goods-card-skeleton .skeleton-block {
+  border-radius: 0;
+}
+.goods-card-skeleton .goods-card-skeleton__body {
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-2);
+}
+
+@media (max-width: 1080px) {
+  .goods-grid,
+  .goods-grid-skeleton {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .mall-banner {
+    grid-template-columns: 1fr;
+  }
+  .mall-banner__aside {
+    padding: var(--space-5);
+  }
+  .mall-banner__main {
+    padding: var(--space-5);
+  }
+  .goods-grid,
+  .goods-grid-skeleton {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -1,0 +1,109 @@
+/**
+ * 设计令牌 (Design Tokens)
+ * 全部通过 CSS 变量暴露，业务组件只引用变量，便于主题切换与品牌色统一。
+ */
+
+:root {
+  /* ============ 品牌色 ============ */
+  --color-primary: #ff2d3a;          /* 秒杀主色：偏正红的电商强调色 */
+  --color-primary-hover: #ff1f2d;
+  --color-primary-soft: #fff1f2;
+  --color-primary-soft-2: #ffe4e7;
+  --color-accent: #ffb800;            /* 限时 / 倒计时强调 */
+
+  /* ============ 中性色 ============ */
+  --color-bg: #f5f5f7;                /* 全局背景，类 Apple 灰 */
+  --color-bg-elevated: #ffffff;
+  --color-bg-muted: #fafafa;
+  --color-bg-hover: #f2f3f5;
+
+  --color-text: #1d1d1f;
+  --color-text-secondary: #4a4a4f;
+  --color-text-tertiary: #8a8a8e;
+  --color-text-disabled: #c7c7cc;
+  --color-text-inverse: #ffffff;
+
+  --color-border: #e5e5ea;
+  --color-border-light: #f0f0f3;
+  --color-border-strong: #d2d2d7;
+
+  --color-success: #00b453;
+  --color-warning: #ff8800;
+  --color-danger: #e02020;
+  --color-info: #1677ff;
+
+  /* ============ 圆角 ============ */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 999px;
+
+  /* ============ 阴影 ============ */
+  --shadow-xs: 0 1px 2px rgba(15, 17, 21, 0.04);
+  --shadow-sm: 0 2px 8px rgba(15, 17, 21, 0.05);
+  --shadow-md: 0 8px 24px rgba(15, 17, 21, 0.06);
+  --shadow-lg: 0 16px 48px rgba(15, 17, 21, 0.1);
+  --shadow-primary: 0 8px 24px rgba(255, 45, 58, 0.18);
+
+  /* ============ 间距 ============ */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ============ 字号 ============ */
+  --font-xs: 11px;
+  --font-sm: 12px;
+  --font-md: 14px;
+  --font-base: 14px;
+  --font-lg: 16px;
+  --font-xl: 18px;
+  --font-2xl: 22px;
+  --font-3xl: 28px;
+  --font-4xl: 36px;
+
+  /* ============ 字体 ============ */
+  --font-family:
+    -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei',
+    'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-mono:
+    'SF Mono', 'JetBrains Mono', Consolas, 'Roboto Mono', Menlo, monospace;
+
+  /* ============ 布局 ============ */
+  --layout-max-width: 1200px;
+  --layout-gutter: 24px;
+  --header-height: 84px;
+  --topbar-height: 32px;
+
+  /* ============ 动效 ============ */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+
+  /* ============ 层级 ============ */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal: 1000;
+  --z-toast: 1100;
+}
+
+/* 深色色板预留（暂不启用） */
+@media (prefers-color-scheme: dark) {
+  :root.theme-dark {
+    --color-bg: #1c1c1e;
+    --color-bg-elevated: #2c2c2e;
+    --color-text: #f5f5f7;
+    --color-text-secondary: #d1d1d6;
+    --color-border: #3a3a3c;
+  }
+}
