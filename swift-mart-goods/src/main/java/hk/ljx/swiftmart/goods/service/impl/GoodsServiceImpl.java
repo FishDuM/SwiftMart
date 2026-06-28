@@ -71,7 +71,13 @@ public class GoodsServiceImpl implements GoodsService {
         String redisJsonValue = stringRedisTemplate.opsForValue().get(redisKey);
 
         // 缓存不为空
-        if (StrUtil.isNotBlank(redisJsonValue)) {
+        if (StrUtil.isNotEmpty(redisJsonValue)) {
+            // 判断是不是缓存的 NULL 值
+            if (redisJsonValue.equals(NULL_CACHE_VALUE)) {
+                log.info("==> 命中空值缓存，活动不存在, redisKey: {}", redisKey);
+                throw new BizException(ResponseCodeEnum.SECKILL_ACTIVITY_NOT_EXIST);
+            }
+
             log.info("==> 命中商品列表缓存, redisKey: {}", redisKey);
             // 手动将 String 字符串，反序列化为商品列表
             List<FindSeckillGoodsListRspVO> cachedList = JsonUtils
@@ -90,6 +96,8 @@ public class GoodsServiceImpl implements GoodsService {
         // 查询活动消息
         SeckillActivityDO activityDO = seckillActivityDOMapper.selectByPrimaryKey(activityId);
         if (Objects.isNull(activityDO)) {
+            // 缓存空值，防止缓存穿透
+            cacheNullValue(redisKey);
             throw new BizException(ResponseCodeEnum.SECKILL_ACTIVITY_NOT_EXIST);
         }
         // 根据活动id查询商品信息
@@ -203,6 +211,8 @@ public class GoodsServiceImpl implements GoodsService {
         // 查询秒杀商品
         SeckillGoodsDO seckillGoodsDO = seckillGoodsDOMapper.selectByPrimaryKey(goodsId);
         if (Objects.isNull(seckillGoodsDO)) {
+            // 缓存空值，防止缓存穿透（攻击者用不存在的 goodsId 反复请求）
+            cacheNullValue(key);
             throw new BizException(ResponseCodeEnum.SECKILL_GOODS_NOT_EXIST);
         }
         // 查询商品
