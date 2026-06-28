@@ -37,6 +37,7 @@
     <sa-token.version>1.45.0</sa-token.version>
     <hutool.version>5.8.38</hutool.version>
     <tianai-captcha.version>1.5.5</tianai-captcha.version>
+    <redisson.version>3.45.1</redisson.version>
   </properties>
 
   <!-- 统一依赖管理 -->
@@ -117,6 +118,13 @@
         <groupId>cloud.tianai.captcha</groupId>
         <artifactId>tianai-captcha-springboot-starter</artifactId>
         <version>${tianai-captcha.version}</version>
+      </dependency>
+
+      <!-- Redisson -->
+      <dependency>
+        <groupId>org.redisson</groupId>
+        <artifactId>redisson-spring-boot-starter</artifactId>
+        <version>${redisson.version}</version>
       </dependency>
 
     </dependencies>

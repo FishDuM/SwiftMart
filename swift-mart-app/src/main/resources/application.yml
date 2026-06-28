@@ -97,3 +97,7 @@ sa-token:
   token-prefix: Bearer
   # 是否输出操作日志
   is-log: true
+
+logging:
+  level:
+    root: info

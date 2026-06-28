@@ -14,7 +14,7 @@
         <!-- 日志存放路径 -->
         <Property name="LOG_PATH">logs</Property>
         <!-- 应用名称（用于日志文件名前缀） -->
-        <Property name="APP_NAME">xiaoha-seckill</Property>
+        <Property name="APP_NAME">swift-mart</Property>
     </Properties>
 
     <Appenders>
@@ -75,8 +75,8 @@
     </Appenders>
 
     <Loggers>
-        <!-- dev 环境：控制台 + 文件 -->
-        <SpringProfile name="dev">
+        <!-- dev / local 环境：控制台 + 文件 -->
+        <SpringProfile name="dev || local">
             <Root level="INFO">
                 <AppenderRef ref="Console" />
                 <AppenderRef ref="InfoFile" />

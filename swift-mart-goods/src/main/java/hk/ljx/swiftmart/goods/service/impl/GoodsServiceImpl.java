@@ -17,6 +17,8 @@ import hk.ljx.swiftmart.goods.model.vo.FindSeckillGoodsListRspVO;
 import hk.ljx.swiftmart.goods.service.GoodsService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RBloomFilter;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -52,6 +54,9 @@ public class GoodsServiceImpl implements GoodsService {
     @Resource
     private StringRedisTemplate stringRedisTemplate;
 
+    @Resource
+    private RedissonClient redissonClient;
+
 
     /**
      * 查询秒杀商品列表
@@ -66,6 +71,13 @@ public class GoodsServiceImpl implements GoodsService {
 
         // 构建 Redis 缓存 Key
         String redisKey = RedisKeyConstants.GOODS_LIST_PREFIX + activityId;
+
+        // 查询布隆过滤器
+        RBloomFilter<Long> bloomFilter = redissonClient.getBloomFilter(SECKILL_ACTIVITY_BLOOM_KEY);
+        if (bloomFilter.isExists() && !bloomFilter.contains(activityId)) {
+            log.info("==> 布隆过滤器拦截：活动不存在, activityId: {}", activityId);
+            throw new BizException(ResponseCodeEnum.SECKILL_ACTIVITY_NOT_EXIST);
+        }
 
         // 先查 Redis 缓存
         String redisJsonValue = stringRedisTemplate.opsForValue().get(redisKey);
@@ -179,6 +191,21 @@ public class GoodsServiceImpl implements GoodsService {
         Long activityId = reqVO.getActivityId();
         log.info("查询秒杀商品详情,商品ID:{},活动ID:{}", goodsId, activityId);
 
+        // 布隆过滤器校验活动是否存在
+        RBloomFilter<Long> activityBloom = redissonClient.getBloomFilter(RedisKeyConstants.SECKILL_ACTIVITY_BLOOM_KEY);
+        if (activityBloom.isExists() && !activityBloom.contains(activityId)) {
+            log.info("==> 布隆过滤器拦截：活动不存在, activityId: {}", activityId);
+            throw new BizException(ResponseCodeEnum.SECKILL_ACTIVITY_NOT_EXIST);
+        }
+
+        // 布隆过滤器校验活动下的商品是否存在
+        RBloomFilter<String> goodsBloom = redissonClient.getBloomFilter(RedisKeyConstants.SECKILL_GOODS_BLOOM_KEY);
+
+        if (goodsBloom.isExists() && !goodsBloom.contains(activityId + ":" + goodsId)) {
+            log.info("==> 布隆过滤器拦截：商品不存在, activityId: {}, goodsId: {}", activityId, goodsId);
+            throw new BizException(ResponseCodeEnum.SECKILL_GOODS_NOT_EXIST);
+        }
+
         String key = GOODS_DETAIL_PREFIX + activityId + ":" + goodsId;
         String goodsJson = stringRedisTemplate.opsForValue().get(key);
 
@@ -287,6 +314,35 @@ public class GoodsServiceImpl implements GoodsService {
             log.info("==> 预热跳过：活动下无商品, activityId: {}", activityId);
             throw new BizException(ResponseCodeEnum.SECKILL_ACTIVITY_GOODS_EMPTY);
         }
+
+        // 初始化活动布隆过滤器
+        RBloomFilter<Long> activityBloom = redissonClient.getBloomFilter(RedisKeyConstants.SECKILL_ACTIVITY_BLOOM_KEY);
+        // 初始化之前，如果之前已经创建了，先删除掉
+        activityBloom.delete();
+        // 预期插入一万个活动，误判率为 1%
+        activityBloom.tryInit(10000L, 0.01);
+        // 写入活动 ID
+        activityBloom.add(activityId);
+        // 设置过期时间，防止布隆过滤器一直占用着 Redis 内存
+        redissonClient.getKeys().expire(RedisKeyConstants.SECKILL_ACTIVITY_BLOOM_KEY, 7, TimeUnit.DAYS);
+
+        log.info("==> 活动布隆过滤器写入成功, activityId: {}", activityId);
+
+        // 初始化商品布隆过滤器
+        RBloomFilter<String> goodsBloom = redissonClient.getBloomFilter(RedisKeyConstants.SECKILL_GOODS_BLOOM_KEY);
+        // 初始化之前，如果之前已经创建了，先删除掉
+        goodsBloom.delete();
+        // 预期插入十万个活动，误判率为 1%
+        goodsBloom.tryInit(100000L, 0.01);
+        // 写入活动下所有商品
+        seckillGoodsDOS.forEach(seckillGoodsDO -> {
+            goodsBloom.add(activityId + ":" + seckillGoodsDO.getGoodsId());
+        });
+        // 设置过期时间，防止布隆过滤器一直占用着 Redis 内存
+        redissonClient.getKeys().expire(RedisKeyConstants.SECKILL_GOODS_BLOOM_KEY, 7, TimeUnit.DAYS);
+
+        log.info("==> 商品布隆过滤器写入成功, activityId: {}, 商品数: {}", activityId, seckillGoodsDOS.size());
+
         // 批量查询商品原价
         List<Long> goodsIdList = seckillGoodsDOS.stream().map(SeckillGoodsDO::getGoodsId).toList();
         List<GoodsDO> goodsIds = goodsDOMapper.selectByIds(goodsIdList);
