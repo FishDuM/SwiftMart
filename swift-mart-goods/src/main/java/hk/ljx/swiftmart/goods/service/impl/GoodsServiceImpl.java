@@ -1,8 +1,8 @@
 package hk.ljx.swiftmart.goods.service.impl;
 
-import cn.hutool.cache.Cache;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
+import com.github.benmanes.caffeine.cache.Cache;
 import hk.ljx.swiftmart.common.constant.RedisKeyConstants;
 import hk.ljx.swiftmart.common.domain.dataobject.*;
 import hk.ljx.swiftmart.common.domain.mapper.*;
@@ -78,7 +78,7 @@ public class GoodsServiceImpl implements GoodsService {
         // 构建 Redis 缓存 Key
         String redisKey = RedisKeyConstants.GOODS_LIST_PREFIX + activityId;
 
-        String localCachedValue = goodsListLocalCache.get(redisKey);
+        String localCachedValue = goodsListLocalCache.getIfPresent(redisKey);
         if (StrUtil.isNotBlank(localCachedValue)) {
             log.info("==> 命中本地缓存（L1）, key: {}", redisKey);
             // 反序列化
@@ -228,7 +228,7 @@ public class GoodsServiceImpl implements GoodsService {
 
         String redisKey = RedisKeyConstants.GOODS_DETAIL_PREFIX + activityId + ":" + goodsId;
 
-        String localCachedValue = goodsDetailLocalCache.get(redisKey);
+        String localCachedValue = goodsDetailLocalCache.getIfPresent(redisKey);
         if (StrUtil.isNotBlank(localCachedValue)) {
             log.info("==> 命中本地缓存（L1）, key: {}", redisKey);
             // 防止缓存穿透，判断缓存是否是 NULL
